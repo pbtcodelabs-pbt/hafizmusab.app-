@@ -860,6 +860,12 @@ html,body{height:100vh;height:100svh;overflow:hidden;
   direction:rtl;text-align:center;line-height:2.2;
   text-shadow:0 1px 6px rgba(0,0,0,0.4);}
 .wlc-text-sm{font-size:16px;line-height:1.9;}
+#wlcImgBox{width:100%;min-height:60px;border-radius:12px;overflow:hidden;
+  background:rgba(255,255,255,0.06);border:1.5px dashed rgba(255,255,255,0.25);
+  display:flex;align-items:center;justify-content:center;margin-bottom:10px;
+  -webkit-user-select:none;user-select:none;touch-action:manipulation;}
+#wlcImgEl{width:100%;display:block;}
+#wlcImgEmpty{font-size:24px;opacity:.3;padding:12px;}
 /* ══ یوٹیوب تعارفی ویڈیو بٹن ══ */
 .wlc-video-btn{width:100%;display:flex;align-items:center;gap:10px;
   background:linear-gradient(145deg,#16a34a,#0d6b38);border:1.5px solid rgba(253,230,138,0.6);
@@ -1514,6 +1520,11 @@ html,body{height:100vh;height:100svh;overflow:hidden;
         <span class="wvb-sub">📱 یہ ایپ استعمال کرنے کا طریقہ اس ویڈیو میں دیکھیں</span>
       </span>
     </button>
+    <div id="wlcImgBox" onpointerdown="wlcImgPressStart(event)" onpointerup="wlcImgPressEnd(event)" onpointerleave="wlcImgPressEnd(event)" onpointercancel="wlcImgPressEnd(event)" oncontextmenu="return false;">
+      <img id="wlcImgEl" style="display:none">
+      <div id="wlcImgEmpty">🖼</div>
+    </div>
+    <input type="file" id="wlcImgFileInput" accept="image/*" style="display:none" onchange="handleWlcImgUpload(event)">
     <div class="wlc-text wlc-text-sm" id="wlcTextEl">یہ ایپ حفاظ کی آسانی کے لیے عالمی شہرت یافتہ بہترین قراء کی تلاوت اور اردو ترجمے کے ساتھ بہت بہترین طریقے سے ڈیزائن کی گئی ہے — برائے مہربانی اسے دوسروں کے ساتھ بھی شیئر کریں</div>
     <div class="wlc-divider"></div>
     <button class="wlc-chatdev-btn" onclick="toggleChatDev()">💬 Chat with Developer</button>
@@ -3365,6 +3376,61 @@ async function loadRemoteWelcomeMsg(){
 }
 document.addEventListener('DOMContentLoaded',loadRemoteWelcomeMsg);
 
+// ══ خوش آمدید تصویر — پہلے گٹ ہب کی welcome.jpg فائل تلاش کرتا ہے (اگر ریپو میں موجود ہو
+// تو خودکار سب صارفین تک پہنچ جائے گی، بالکل welcome.txt کی طرح)۔ اگر وہ فائل موجود نہ ہو
+// تو اسی فون پر پہلے محفوظ کی گئی تصویر (اگر ہو) دکھا دیتا ہے۔
+// فوری تبدیلی کے لیے: تصویر کو 5 سیکنڈ دبائے رکھیں → گیلری سے تصویر چنیں۔
+// نوٹ: یہ تبدیلی صرف اسی فون پر نظر آئے گی — سب صارفین تک پہنچانے کے لیے وہی تصویر
+// 'welcome.jpg' کے نام سے گٹ ہب ریپو میں (welcome.txt کے ساتھ) اپلوڈ کریں۔
+function loadWelcomeImg(){
+  const img=document.getElementById('wlcImgEl'),empty=document.getElementById('wlcImgEmpty');
+  if(!img)return;
+  img.onload=()=>{img.style.display='block';if(empty)empty.style.display='none';};
+  img.onerror=()=>{
+    let data=null;try{data=localStorage.getItem('hfz_wlc_img');}catch{}
+    if(data){img.onerror=null;img.src=data;img.style.display='block';if(empty)empty.style.display='none';}
+    else{img.style.display='none';if(empty)empty.style.display='block';}
+  };
+  img.src='./welcome.jpg?t='+Date.now();
+}
+document.addEventListener('DOMContentLoaded',loadWelcomeImg);
+
+let wlcImgPressTimer=null;
+function wlcImgPressStart(){
+  clearTimeout(wlcImgPressTimer);
+  wlcImgPressTimer=setTimeout(()=>{
+    if(navigator.vibrate)try{navigator.vibrate(30);}catch{}
+    document.getElementById('wlcImgFileInput').click();
+  },5000);
+}
+function wlcImgPressEnd(){clearTimeout(wlcImgPressTimer);}
+function handleWlcImgUpload(ev){
+  const file=ev.target.files&&ev.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const im=new Image();
+    im.onload=()=>{
+      const maxW=900,maxH=900;
+      let w=im.width,h=im.height;
+      const ratio=Math.min(1,maxW/w,maxH/h);
+      w=Math.round(w*ratio);h=Math.round(h*ratio);
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(im,0,0,w,h);
+      const outData=c.toDataURL('image/jpeg',0.85);
+      try{
+        localStorage.setItem('hfz_wlc_img',outData);
+        showToast('✓ تصویر تبدیل ہو گئی');
+        const img=document.getElementById('wlcImgEl'),empty=document.getElementById('wlcImgEmpty');
+        img.onerror=null;img.src=outData;img.style.display='block';if(empty)empty.style.display='none';
+      }catch(e){showToast('⚠️ تصویر بہت بڑی ہے، دوبارہ کوشش کریں');}
+    };
+    im.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+  ev.target.value='';
+}
+
 function setupShareLongPress(btnId){
   const el=document.getElementById(btnId);
   if(!el)return;
@@ -3978,7 +4044,7 @@ function applyUrFont(idx){
 
 // ══ APP VERSION — ہر نئی اپلوڈ شدہ فائل پر یہ کوڈ بدلیں تاکہ فون/GitHub پر
 // فوراً تصدیق ہو سکے کہ تازہ ترین فائل ہی چل رہی ہے (پرانا کیش/پرانی فائل نہیں) ══
-const APP_VERSION='2108fr0606am';
+const APP_VERSION='2408fr0655am';
 
 // ══ ONLINE / OFFLINE INDICATOR + VERSION BADGE ══
 function updateNetStatus(){
