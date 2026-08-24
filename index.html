@@ -993,6 +993,15 @@ html,body{height:100vh;height:100svh;overflow:hidden;
 .wlce-btn.cancel{background:linear-gradient(145deg,#64748b,#334155);color:#fff;box-shadow:0 4px 0 #1e293b;}
 .wlce-btn:active{transform:translateY(2px);}
 
+/* ══ ویڈیو لنک/عنوان ایڈیٹ باکس (وی ایل ای) ══ */
+#vleOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:1450;
+  flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;}
+#vleOverlay.open{display:flex;}
+.vle-input{width:100%;background:#ffffff;color:#0f172a;border:2px solid rgba(var(--acR),0.8);
+  border-radius:12px;padding:11px 12px;font-family:'Jameel-Noori.N','JN',serif;font-size:16px;
+  text-align:right;direction:rtl;outline:none;margin-bottom:12px;display:block;}
+.vle-input[dir="ltr"]{text-align:left;direction:ltr;font-family:Arial,sans-serif;font-size:14px;}
+
 /* ══ CARD THEME PREVIEW — بائیں/دائیں سلائیڈ کر کے تھیم منتخب کریں ══ */
 #cardPreviewOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:1500;
   flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;}
@@ -1509,17 +1518,29 @@ html,body{height:100vh;height:100svh;overflow:hidden;
 
 <div id="welcomeOverlay">
   <div class="wlc-bismillah">﷽</div>
-  <div class="wlc-quran-title" onclick="secretVideoLinkTap()">Hifz Pro</div>
+  <div class="wlc-quran-title">Hifz Pro</div>
   <div class="wlc-by-ahg">By ARJ-MBR-MSB</div>
   <div class="wlc-ver-tag wlc-ver-tag-top" id="wlcVerTag2"></div>
   <div class="wlc-card">
-    <button class="wlc-video-btn" onclick="openIntroVideo()">
+    <button class="wlc-video-btn" onpointerdown="wvbPressStart(event)" onpointerup="wvbPressEnd(event)" onpointerleave="wvbPressCancel(event)" onpointercancel="wvbPressCancel(event)" oncontextmenu="return false;">
       <span class="wvb-ic">▶️</span>
       <span class="wvb-txt">
         <span class="wvb-title">Hifz Pro کی تعارفی ویڈیو یہاں سے دیکھیں</span>
         <span class="wvb-sub">📱 یہ ایپ استعمال کرنے کا طریقہ اس ویڈیو میں دیکھیں</span>
       </span>
     </button>
+    <div id="vleOverlay">
+      <div class="wlce-card">
+        <div class="wlce-title">ویڈیو لنک اور عنوان تبدیل کریں</div>
+        <input type="text" id="vleLinkInput" class="vle-input" dir="ltr" placeholder="یوٹیوب ویڈیو لنک یہاں پیسٹ کریں">
+        <input type="text" id="vleTitleInput" class="vle-input" placeholder="بٹن کی پہلی لائن (عنوان)">
+        <input type="text" id="vleSubInput" class="vle-input" placeholder="بٹن کی دوسری لائن (ذیلی متن — خالی چھوڑ سکتے ہیں)">
+        <div class="wlce-btn-row">
+          <button class="wlce-btn cancel" onclick="closeVideoLinkEditor()">منسوخ</button>
+          <button class="wlce-btn save" onclick="saveVideoLinkEditor()">محفوظ کریں</button>
+        </div>
+      </div>
+    </div>
     <div id="wlcImgBox" onpointerdown="wlcImgPressStart(event)" onpointerup="wlcImgPressEnd(event)" onpointerleave="wlcImgPressEnd(event)" onpointercancel="wlcImgPressEnd(event)" oncontextmenu="return false;">
       <img id="wlcImgEl" style="display:none">
       <div id="wlcImgEmpty">🖼</div>
@@ -3081,22 +3102,37 @@ function applySel(){
 
 // ══ DOWNLOAD MANAGER ══
 let dlQari=CQ;
-// ══ یوٹیوب تعارفی ویڈیو — لنک صرف سیٹنگز میں 5-ٹچ کے خفیہ طریقے سے تبدیل ہو سکتا ہے،
-// عام صارف کو یہ آپشن نظر ہی نہیں آتا ══
-// ══ یوٹیوب ویڈیو لنک — ایک الگ فائل video-link.txt سے پڑھا جاتا ہے (welcome.txt جیسا نظام)
-// تاکہ ہر صارف کے فون پر خودکار اپڈیٹ ہو، نہ کہ صرف ایک ڈیوائس پر ══
+// ══ یوٹیوب تعارفی ویڈیو — ایک ہی فائل video-link.txt سے لنک اور عنوان دونوں پڑھے جاتے ہیں
+// (welcome.txt جیسا نظام) تاکہ ہر صارف کے فون پر خودکار اپڈیٹ ہو، نہ کہ صرف ایک ڈیوائس پر۔
+// video-link.txt فارمیٹ (تین علیحدہ لائنیں):
+//   لائن 1 = یوٹیوب لنک
+//   لائن 2 = بٹن کی پہلی لائن (عنوان)
+//   لائن 3 = بٹن کی دوسری لائن (ذیلی متن) — اگر یہ لائن خالی چھوڑنی ہو تو خالی لائن رکھیں
+// صرف پہلی لائن (لنک) بھی کافی ہے، باقی دو لائنیں نہ ہوں تو ڈیفالٹ عنوان استعمال ہوگا۔ ══
 let _remoteIntroVideoLink='';
+let _remoteIntroVideoTitleL1=null;
+let _remoteIntroVideoTitleL2=null;
 async function loadRemoteIntroVideoLink(){
   try{
     const res=await fetch('./video-link.txt?t='+Date.now(),{cache:'no-store'});
     if(res.ok){
-      const txt=(await res.text()).trim();
-      if(txt)_remoteIntroVideoLink=txt;
+      const raw=await res.text();
+      const lines=raw.split('\n').map(l=>l.replace(/\r$/,'').trim());
+      if(lines[0])_remoteIntroVideoLink=lines[0];
+      if(lines.length>1&&lines[1])_remoteIntroVideoTitleL1=lines[1];
+      if(lines.length>2)_remoteIntroVideoTitleL2=lines[2];
+      applyVideoBtnTitle();
     }
   }catch(e){/* آف لائن — پرانا/خالی لنک ہی رہے گا */}
 }
 document.addEventListener('DOMContentLoaded',loadRemoteIntroVideoLink);
 function getIntroVideoLink(){
+  let localOverride=false;
+  try{localOverride=localStorage.getItem('introVideoLinkOverride')==='1';}catch{}
+  if(localOverride){
+    let v=null;try{v=localStorage.getItem('introVideoLink');}catch{}
+    if(v)return v;
+  }
   if(_remoteIntroVideoLink)return _remoteIntroVideoLink;
   try{return localStorage.getItem('introVideoLink')||'';}catch{return '';}
 }
@@ -3105,17 +3141,77 @@ function openIntroVideo(){
   if(link){window.open(link,'_blank');}
   else{showToast('ابھی ویڈیو شامل نہیں ہوئی — جلد شامل کی جائے گی');}
 }
-let _videoTapCount=0,_videoTapTimer=null;
-function secretVideoLinkTap(){
-  _videoTapCount++;
-  clearTimeout(_videoTapTimer);
-  _videoTapTimer=setTimeout(()=>{_videoTapCount=0;},1200);
-  if(_videoTapCount>=5){
-    _videoTapCount=0;
-    showToast('یوٹیوب لنک بدلنے کے لیے: گٹ ہب پر video-link.txt فائل ایڈٹ کریں');
-    return true;
+// ══ ویڈیو بٹن کا عنوان (دو لائنیں) — پہلے video-link.txt (سب صارفین)، پھر اسی فون کی
+// مقامی تبدیلی (اگر لانگ پریس ایڈیٹر سے محفوظ کی ہو) ══
+function getIntroVideoTitle(){
+  let localOverride=false;
+  try{localOverride=localStorage.getItem('introVideoTitleOverride')==='1';}catch{}
+  if(localOverride){
+    let l1=null,l2=null;
+    try{l1=localStorage.getItem('introVideoTitleL1');l2=localStorage.getItem('introVideoTitleL2');}catch{}
+    return{
+      line1:l1||'Hifz Pro کی تعارفی ویڈیو یہاں سے دیکھیں',
+      line2:(l2!==null?l2:'📱 یہ ایپ استعمال کرنے کا طریقہ اس ویڈیو میں دیکھیں')
+    };
   }
-  return false;
+  return{
+    line1:_remoteIntroVideoTitleL1||'Hifz Pro کی تعارفی ویڈیو یہاں سے دیکھیں',
+    line2:(_remoteIntroVideoTitleL2!==null?_remoteIntroVideoTitleL2:'📱 یہ ایپ استعمال کرنے کا طریقہ اس ویڈیو میں دیکھیں')
+  };
+}
+function applyVideoBtnTitle(){
+  const t=getIntroVideoTitle();
+  const elT=document.querySelector('.wvb-title'),elS=document.querySelector('.wvb-sub');
+  if(elT)elT.textContent=t.line1;
+  if(elS){elS.textContent=t.line2;elS.style.display=t.line2?'':'none';}
+}
+document.addEventListener('DOMContentLoaded',applyVideoBtnTitle);
+
+// ══ ویڈیو بٹن — عام ٹچ سے ویڈیو کھلے، 5 سیکنڈ دبائے رکھنے سے لنک/عنوان ایڈیٹر کھلے
+// (یہاں سے محفوظ کی گئی تبدیلی صرف اسی فون پر لاگو ہوتی ہے — سب صارفین تک پہنچانے کے
+// لیے وہی معلومات video-link.txt میں گٹ ہب پر اپڈیٹ کریں) ══
+let wvbPressTimer=null,_wvbLongPress=false;
+function wvbPressStart(){
+  clearTimeout(wvbPressTimer);
+  _wvbLongPress=false;
+  wvbPressTimer=setTimeout(()=>{
+    _wvbLongPress=true;
+    if(navigator.vibrate)try{navigator.vibrate(30);}catch{}
+    openVideoLinkEditor();
+  },5000);
+}
+function wvbPressEnd(){
+  clearTimeout(wvbPressTimer);
+  if(_wvbLongPress){_wvbLongPress=false;return;}
+  openIntroVideo();
+}
+function wvbPressCancel(){
+  clearTimeout(wvbPressTimer);
+  _wvbLongPress=false;
+}
+function openVideoLinkEditor(){
+  const t=getIntroVideoTitle();
+  document.getElementById('vleLinkInput').value=getIntroVideoLink();
+  document.getElementById('vleTitleInput').value=t.line1;
+  document.getElementById('vleSubInput').value=t.line2;
+  document.getElementById('vleOverlay').classList.add('open');
+}
+function closeVideoLinkEditor(){
+  document.getElementById('vleOverlay').classList.remove('open');
+}
+function saveVideoLinkEditor(){
+  const link=document.getElementById('vleLinkInput').value.trim();
+  const l1=document.getElementById('vleTitleInput').value.trim();
+  const l2=document.getElementById('vleSubInput').value.trim();
+  try{
+    if(link){localStorage.setItem('introVideoLink',link);localStorage.setItem('introVideoLinkOverride','1');}
+    localStorage.setItem('introVideoTitleL1',l1);
+    localStorage.setItem('introVideoTitleL2',l2);
+    localStorage.setItem('introVideoTitleOverride','1');
+  }catch(e){}
+  applyVideoBtnTitle();
+  closeVideoLinkEditor();
+  showToast('✓ محفوظ ہو گیا (صرف اسی فون پر)');
 }
 function openSettings(){
   document.getElementById('settingsOverlay').classList.add('open');
@@ -4044,7 +4140,7 @@ function applyUrFont(idx){
 
 // ══ APP VERSION — ہر نئی اپلوڈ شدہ فائل پر یہ کوڈ بدلیں تاکہ فون/GitHub پر
 // فوراً تصدیق ہو سکے کہ تازہ ترین فائل ہی چل رہی ہے (پرانا کیش/پرانی فائل نہیں) ══
-const APP_VERSION='2408mo0750am';
+const APP_VERSION='2408mo0816am';
 
 // ══ ONLINE / OFFLINE INDICATOR + VERSION BADGE ══
 function updateNetStatus(){

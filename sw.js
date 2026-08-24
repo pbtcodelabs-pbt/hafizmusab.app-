@@ -1,5 +1,5 @@
 //  — Service Worker
-const CACHE_NAME = 'hafiz-musab-shell-2408mo0750am';
+const CACHE_NAME = 'hafiz-musab-shell-2408mo0816am';
 const SHELL_FILES = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
